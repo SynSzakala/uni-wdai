@@ -2,6 +2,10 @@ output "api_ecr_url" {
   value = aws_ecr_repository.api.repository_url
 }
 
+output "converter_ecr_url" {
+  value = aws_ecr_repository.converter.repository_url
+}
+
 output "vpc_id" {
   value = aws_vpc.main.id
 }
@@ -17,6 +21,10 @@ output "mongodb_password" {
 
 output "mongodb_url" {
   value = aws_docdb_cluster.mongo.endpoint
+}
+
+output "private_subnets" {
+  value = aws_subnet.private[*].id
 }
 
 output "public_subnets" {

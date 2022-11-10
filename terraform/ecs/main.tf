@@ -1,17 +1,3 @@
-variable "api_ecr_url" {
-  type = string
-}
-
-variable "vpc_id" {
-  type = string
-}
-
-variable "loadbalancer_subnet_ids" {
-  type = list(string)
-}
-
-data "aws_caller_identity" "current" {}
-
 terraform {
   required_providers {
     aws = {
@@ -21,24 +7,7 @@ terraform {
   }
 }
 
-resource "aws_security_group" "allow_all" {
-  name_prefix = "allowall"
-  vpc_id      = var.vpc_id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
+data "aws_caller_identity" "current" {}
 
 resource "aws_ecs_cluster" "main" {
   name = "converter"
@@ -49,7 +18,9 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-
+resource "aws_cloudwatch_log_group" "main" {
+  name = "converter-logs"
+}
 
 resource "aws_ecs_task_definition" "api" {
   family                   = "api"
@@ -67,6 +38,14 @@ resource "aws_ecs_task_definition" "api" {
           hostPort      = 80
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "${aws_cloudwatch_log_group.main.id}",
+          awslogs-region        = "eu-central-1",
+          awslogs-stream-prefix = "api"
+        }
+      }
     },
   ])
   cpu    = 256
@@ -80,13 +59,60 @@ resource "aws_lb_target_group" "api" {
   target_type = "ip"
   vpc_id      = var.vpc_id
 
+  /* health_check {
+    healthy_threshold   = "3"
+    interval            = "300"
+    protocol            = "HTTP"
+    matcher             = "200"
+    timeout             = "3"
+    path                = "/v1/status"
+    unhealthy_threshold = "2"
+  } */
+}
+
+resource "aws_security_group" "loadbalancer" {
+  name_prefix = "loadbalancer"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 0
+    to_port     = 80
+    protocol    = "TCP"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "service" {
+  name_prefix = "loadbalancer"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port       = 0
+    to_port         = 80
+    protocol        = "TCP"
+    security_groups = [aws_security_group.loadbalancer.id]
+  }
 }
 
 resource "aws_alb" "api" {
   name               = "api"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.allow_all.id]
+  security_groups    = [aws_security_group.loadbalancer.id]
   subnets            = var.loadbalancer_subnet_ids
 }
 
@@ -97,18 +123,28 @@ resource "aws_alb_listener" "api" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.api.arn
+    target_group_arn = aws_lb_target_group.api.id
   }
 }
 
 resource "aws_ecs_service" "api" {
-  name            = "api"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = 3
+  name                  = "api"
+  cluster               = aws_ecs_cluster.main.id
+  task_definition       = aws_ecs_task_definition.api.arn
+  launch_type           = "FARGATE"
+  scheduling_strategy   = "REPLICA"
+  desired_count         = 3
+  force_new_deployment  = true
+  wait_for_steady_state = true
+
+  network_configuration {
+    subnets         = var.container_subnet_ids
+    security_groups = [aws_security_group.service.id]
+  }
 
   load_balancer {
-    elb_name       = aws_alb.api.name
+    target_group_arn = aws_lb_target_group.api.arn
+    # elb_name       = aws_alb.api.id
     container_name = "api"
     container_port = 80
   }
