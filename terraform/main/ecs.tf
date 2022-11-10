@@ -1,12 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 4.0"
-    }
-  }
-}
-
 data "aws_caller_identity" "current" {}
 
 resource "aws_ecs_cluster" "main" {
@@ -30,7 +21,7 @@ resource "aws_ecs_task_definition" "api" {
   container_definitions = jsonencode([
     {
       name      = "api"
-      image     = var.api_ecr_url
+      image     = var.api_repository_url
       essential = true
       portMappings = [
         {
@@ -57,7 +48,7 @@ resource "aws_lb_target_group" "api" {
   port        = 80
   protocol    = "HTTP"
   target_type = "ip"
-  vpc_id      = var.vpc_id
+  vpc_id      = aws_vpc.main.id
 
   /* health_check {
     healthy_threshold   = "3"
@@ -72,7 +63,7 @@ resource "aws_lb_target_group" "api" {
 
 resource "aws_security_group" "loadbalancer" {
   name_prefix = "loadbalancer"
-  vpc_id      = var.vpc_id
+  vpc_id      = aws_vpc.main.id
 
   egress {
     from_port   = 0
@@ -91,7 +82,7 @@ resource "aws_security_group" "loadbalancer" {
 
 resource "aws_security_group" "service" {
   name_prefix = "loadbalancer"
-  vpc_id      = var.vpc_id
+  vpc_id      = aws_vpc.main.id
 
   egress {
     from_port   = 0
@@ -113,7 +104,7 @@ resource "aws_alb" "api" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.loadbalancer.id]
-  subnets            = var.loadbalancer_subnet_ids
+  subnets            = aws_subnet.public[*].id
 }
 
 resource "aws_alb_listener" "api" {
@@ -138,7 +129,7 @@ resource "aws_ecs_service" "api" {
   wait_for_steady_state = true
 
   network_configuration {
-    subnets         = var.container_subnet_ids
+    subnets         = aws_subnet.private[*].id
     security_groups = [aws_security_group.service.id]
   }
 
