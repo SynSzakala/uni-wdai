@@ -1,6 +1,6 @@
 terraform -chdir=ecr apply -auto-approve
-API_REPOSITORY_URL=$(terraform -chdir=base output -json | jq -r ".api_ecr_url.value")
-CONVERTER_REPOSITORY_URL=$(terraform -chdir=base output -json | jq -r ".converter_repository_url.value")
+API_REPOSITORY_URL=$(terraform -chdir=ecr output -json | jq -r ".api_repository_url.value")
+CONVERTER_REPOSITORY_URL=$(terraform -chdir=ecr output -json | jq -r ".converter_repository_url.value")
 
 aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin $API_REPOSITORY_URL
 aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin $CONVERTER_REPOSITORY_URL
