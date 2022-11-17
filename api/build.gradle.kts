@@ -27,6 +27,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springdoc:springdoc-openapi-webflux-ui:1.6.12")
+
+    implementation(platform("software.amazon.awssdk:bom:2.18.16"))
+    implementation("software.amazon.awssdk:s3")
+    implementation("software.amazon.awssdk:sqs")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.4")
+
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

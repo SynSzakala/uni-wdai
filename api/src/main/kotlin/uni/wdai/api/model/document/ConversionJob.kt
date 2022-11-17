@@ -16,4 +16,6 @@ data class ConversionJob(
         Completed,
         Failed
     }
+
+    val idString get() = id.toHexString()!!
 }
