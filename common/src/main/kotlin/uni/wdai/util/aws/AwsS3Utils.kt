@@ -1,4 +1,4 @@
-package uni.wdai.api.util.aws
+package uni.wdai.util.aws
 
 import kotlinx.coroutines.future.await
 import software.amazon.awssdk.services.s3.S3AsyncClient

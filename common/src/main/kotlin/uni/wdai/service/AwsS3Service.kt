@@ -1,5 +1,6 @@
-package uni.wdai.api.service
+package uni.wdai.service
 
+import kotlinx.coroutines.future.await
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import software.amazon.awssdk.services.s3.S3AsyncClient
@@ -7,8 +8,9 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
-import uni.wdai.api.configuration.AwsS3BucketNames
-import uni.wdai.api.util.aws.doesObjectExist
+import uni.wdai.util.aws.doesObjectExist
+import uni.wdai.configuration.AwsS3BucketNames
+import java.nio.file.Path
 import java.time.Duration
 import java.util.*
 
@@ -31,6 +33,14 @@ class AwsS3Service(
 
     suspend fun isUploaded(id: String) = client.doesObjectExist { inputPath(id) }
 
+    suspend fun downloadToFile(id: String, path: Path) {
+        client.getObject({ it.inputPath(id)}, path).await()!!
+    }
+
+    suspend fun uploadFromFile(id: String, path: Path) {
+        client.putObject({ it.outputPath(id) }, path).await()!!
+    }
+
     fun generateDownloadUrl(id: String) = presigner
         .presignGetObject { presign ->
             presign
@@ -39,9 +49,13 @@ class AwsS3Service(
         }
         .url().toString()
 
+    private fun GetObjectRequest.Builder.inputPath(id: String) = bucket(bucketNames.input).key(id)
+
     private fun PutObjectRequest.Builder.inputPath(id: String) = bucket(bucketNames.input).key(id)
 
     private fun HeadObjectRequest.Builder.inputPath(id: String) = bucket(bucketNames.input).key(id)
 
     private fun GetObjectRequest.Builder.outputPath(id: String) = bucket(bucketNames.output).key(id)
+
+    private fun PutObjectRequest.Builder.outputPath(id: String) = bucket(bucketNames.output).key(id)
 }

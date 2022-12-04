@@ -1,4 +1,4 @@
-package uni.wdai.api.util.spring
+package uni.wdai.util.spring
 
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 

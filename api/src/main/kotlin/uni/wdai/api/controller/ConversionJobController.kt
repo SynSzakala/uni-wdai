@@ -8,13 +8,13 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
-import uni.wdai.api.model.document.ConversionJob
-import uni.wdai.api.model.document.ConversionJob.State.*
-import uni.wdai.api.model.event.ConversionStartEvent
-import uni.wdai.api.repository.ConversionJobRepository
-import uni.wdai.api.service.AwsS3Service
-import uni.wdai.api.service.AwsSqsService
-import uni.wdai.api.util.spring.updateById
+import uni.wdai.model.document.ConversionJob
+import uni.wdai.model.document.ConversionJob.State.*
+import uni.wdai.model.event.ConversionStartEvent
+import uni.wdai.repository.ConversionJobRepository
+import uni.wdai.service.AwsS3Service
+import uni.wdai.service.AwsSqsService
+import uni.wdai.util.spring.updateById
 
 @RestController
 class ConversionJobController(
@@ -22,7 +22,7 @@ class ConversionJobController(
     val s3Service: AwsS3Service,
     val sqsService: AwsSqsService,
 ) {
-    data class CreateJobReq(val commandLine: String)
+    data class CreateJobReq(val commandLine: List<String>)
     data class CreateJobRes(val id: String, val uploadUrl: String)
 
     @PostMapping("/job")

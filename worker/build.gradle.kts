@@ -19,10 +19,7 @@ configurations {
 
 dependencies {
     implementation(project(":common"))
-
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
-    implementation("org.springdoc:springdoc-openapi-webflux-ui:1.6.13")
-    implementation("org.springdoc:springdoc-openapi-kotlin:1.6.13")
+    implementation("com.github.pgreze:kotlin-process:1.4")
 }
 
 tasks.withType<KotlinCompile> {

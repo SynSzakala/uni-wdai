@@ -1,4 +1,4 @@
-package uni.wdai.api.configuration
+package uni.wdai.configuration
 
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
