@@ -2,6 +2,7 @@ package uni.wdai.api.controller
 
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -16,6 +17,7 @@ import uni.wdai.service.AwsS3Service
 import uni.wdai.service.AwsSqsService
 import uni.wdai.util.spring.updateById
 
+@CrossOrigin
 @RestController
 class ConversionJobController(
     val repository: ConversionJobRepository,
