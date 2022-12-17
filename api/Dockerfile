@@ -1,6 +1,6 @@
 FROM adoptopenjdk/openjdk14
 
-COPY build/libs/api-0.0.1-SNAPSHOT.jar api.jar
+COPY api-0.0.1-SNAPSHOT.jar api.jar
 
 ENTRYPOINT java -jar api.jar \
     -Duni.wdai.s3.input_bucket=$S3_INPUT_BUCKET \
