@@ -23,10 +23,10 @@ class AwsS3Service(
 ) {
     private val urlExpiration by lazy { Duration.ofMinutes(urlExpirationMinutes.toLong()) }
 
-    fun generateUploadUrl(id: String) = presigner
+    fun generateUploadUrl(id: String, mimeType: String) = presigner
         .presignPutObject { presign ->
             presign
-                .putObjectRequest { it.inputPath(id) }
+                .putObjectRequest { it.inputPath(id).contentType(mimeType) }
                 .signatureDuration(urlExpiration)
         }
         .url().toString()
@@ -37,8 +37,8 @@ class AwsS3Service(
         client.getObject({ it.inputPath(id)}, path).await()!!
     }
 
-    suspend fun uploadFromFile(id: String, path: Path) {
-        client.putObject({ it.outputPath(id) }, path).await()!!
+    suspend fun uploadFromFile(id: String, path: Path, mimeType: String) {
+        client.putObject({ it.outputPath(id).contentType(mimeType) }, path).await()!!
     }
 
     fun generateDownloadUrl(id: String) = presigner

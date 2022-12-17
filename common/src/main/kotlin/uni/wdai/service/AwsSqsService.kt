@@ -24,13 +24,18 @@ class AwsSqsService(
 
     fun receiveSerial() = flow<ConversionStartEvent> {
         while (true) {
-            val message = client.receiveMessage { it.queueUrl(queueUrls.start).maxNumberOfMessages(1).waitTimeSeconds(20) }.await().messages().firstOrNull()
-            if(message != null) {
+            val message =
+                client.receiveMessage { it.queueUrl(queueUrls.start).maxNumberOfMessages(1).waitTimeSeconds(20) }
+                    .await().messages().firstOrNull()
+            if (message != null) {
                 coroutineScope {
                     val job = launch {
-                        while(true) {
+                        while (true) {
                             delay(1000)
-                            client.changeMessageVisibility { it.queueUrl(queueUrls.start).receiptHandle(message.receiptHandle()).visibilityTimeout(1000) }
+                            client.changeMessageVisibility {
+                                it.queueUrl(queueUrls.start).receiptHandle(message.receiptHandle())
+                                    .visibilityTimeout(1000)
+                            }
                         }
                     }
                     emit(objectMapper.readValue(message.body()))

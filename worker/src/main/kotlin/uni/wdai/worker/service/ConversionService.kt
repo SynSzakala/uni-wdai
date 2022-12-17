@@ -1,4 +1,4 @@
-package uni.wdai.api.service
+package uni.wdai.worker.service
 
 import com.github.pgreze.process.Redirect
 import com.github.pgreze.process.process
@@ -17,6 +17,7 @@ import uni.wdai.repository.ConversionJobRepository
 import uni.wdai.service.AwsS3Service
 import uni.wdai.service.AwsSqsService
 import uni.wdai.util.spring.updateById
+import uni.wdai.worker.util.ffmpegName
 import javax.annotation.PostConstruct
 import kotlin.io.path.Path
 import kotlin.io.path.deleteIfExists
@@ -34,13 +35,18 @@ class ConversionService(
     fun start() = sqsService.receiveSerial().onEach { handle(it) }.launchIn(this)
 
     private suspend fun handle(event: ConversionStartEvent) {
-        logger.info("Starting conversion ${event.id} (commandLine=${event.commandLine})")
+        logger.info("Starting conversion for $event")
         try {
             s3Service.downloadToFile(event.id, path = Path("input"))
-            val result = process("ffmpeg", *event.commandLine.toTypedArray(), stdout = Redirect.CAPTURE, stderr = Redirect.CAPTURE)
+            val result = process(
+                "ffmpeg",
+                *buildFfmpegArgs(event),
+                stdout = Redirect.CAPTURE,
+                stderr = Redirect.CAPTURE
+            )
             when (result.resultCode) {
                 0 -> {
-                    s3Service.uploadFromFile(event.id, path = Path("output"))
+                    s3Service.uploadFromFile(event.id, path = Path("output"), mimeType = event.outputFormat.mimeType)
                     repository.updateById(ObjectId(event.id)) { copy(state = ConversionJob.State.Completed) }
                     logger.info("Conversion success for ${event.id}")
                 }
@@ -55,4 +61,14 @@ class ConversionService(
             Path("output").deleteIfExists()
         }
     }
+
+    private fun buildFfmpegArgs(event: ConversionStartEvent) = arrayOf(
+        "-f",
+        event.inputFormat.ffmpegName,
+        "-i",
+        "input",
+        "-f",
+        event.outputFormat.ffmpegName,
+        "output"
+    )
 }

@@ -24,13 +24,13 @@ class ConversionJobController(
     val s3Service: AwsS3Service,
     val sqsService: AwsSqsService,
 ) {
-    data class CreateJobReq(val commandLine: List<String>)
+    data class CreateJobReq(val inputFormat: ConversionJob.Format, val outputFormat: ConversionJob.Format)
     data class CreateJobRes(val id: String, val uploadUrl: String)
 
     @PostMapping("/job")
     suspend fun createJob(@RequestBody req: CreateJobReq): CreateJobRes {
-        val job = ConversionJob(commandLine = req.commandLine)
-        val uploadUrl = s3Service.generateUploadUrl(job.idString)
+        val job = ConversionJob(inputFormat = req.inputFormat, outputFormat = req.outputFormat)
+        val uploadUrl = s3Service.generateUploadUrl(job.idString, req.inputFormat.mimeType)
         repository.save(job)
         return CreateJobRes(job.idString, uploadUrl)
     }
@@ -39,7 +39,7 @@ class ConversionJobController(
     suspend fun startJob(@PathVariable id: String) {
         if(!s3Service.isUploaded(id)) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "File not uploaded")
         val job = repository.updateById(ObjectId(id)) { copy(state = Uploaded) }
-        sqsService.send(ConversionStartEvent(id, job.commandLine))
+        sqsService.send(ConversionStartEvent.fromJob(job))
     }
 
     data class GetJobRes(val state: ConversionJob.State, val downloadUrl: String?)

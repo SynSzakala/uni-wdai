@@ -15,5 +15,4 @@ ENTRYPOINT java -jar api.jar \
     -Dspring.data.mongodb.host=$MONGODB_HOST \
     -Dspring.data.mongodb.port=$MONGODB_PORT \
     -Dspring.data.mongodb.username=$MONGODB_USERNAME \
-    -Dspring.data.mongodb.password=$MONGODB_PASSWORD \
-    -Duni.wdai.mongo.ssl.enabled=true
+    -Dspring.data.mongodb.password=$MONGODB_PASSWORD
