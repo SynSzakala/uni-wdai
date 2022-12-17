@@ -5,10 +5,11 @@ RUN apt-get -y update && apt-get install -y ffmpeg
 COPY --from=build worker/build/libs/worker-0.0.1-SNAPSHOT.jar worker.jar
 
 ENTRYPOINT java -jar worker.jar \
-    -Duni.wdai.s3.input_bucket=$S3_INPUT_BUCKET \
-    -Duni.wdai.s3.output_bucket=$S3_OUTPUT_BUCKET \
-    -Duni.wdai.sqs.start_queue=$SQS_QUEUE \
-    -Dspring.data.mongodb.host=$MONGODB_HOST \
-    -Dspring.data.mongodb.port=$MONGODB_PORT \
-    -Dspring.data.mongodb.username=$MONGODB_USERNAME \
-    -Dspring.data.mongodb.password=$MONGODB_PASSWORD
+    --uni.wdai.s3.input_bucket=$S3_INPUT_BUCKET \
+    --uni.wdai.s3.output_bucket=$S3_OUTPUT_BUCKET \
+    --uni.wdai.sqs.start_queue=$SQS_QUEUE \
+    --spring.data.mongodb.host=$MONGODB_HOST \
+    --spring.data.mongodb.port=$MONGODB_PORT \
+    --spring.data.mongodb.username=$MONGODB_USERNAME \
+    --spring.data.mongodb.password=$MONGODB_PASSWORD \
+    --spring.data.mongodb.database=$MONGODB_DATABASE
