@@ -1,7 +1,13 @@
 data "aws_caller_identity" "current" {}
 
+resource "random_string" "cluster_postfix" {
+  length  = 8
+  special = false
+}
+
 resource "aws_ecs_cluster" "main" {
-  name = "converter"
+  name = join("_", ["converter", random_string.cluster_postfix.result])
+
 
   setting {
     name  = "containerInsights"
@@ -10,12 +16,97 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "main" {
-  name = "converter-logs"
+  name_prefix = "converter-logs"
+}
+
+resource "aws_iam_role_policy" "api_task_role_policy" {
+  name_prefix = "api_task_role_policy"
+  role        = aws_iam_role.api_task_role.id
+
+  # todo
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "",
+        "Action" : "*",
+        "Effect" : "Allow",
+        "Resource" : "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "api_task_role" {
+  name_prefix = "api_task_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = ["ec2.amazonaws.com",
+            "ecs.amazonaws.com",
+          "ecs-tasks.amazonaws.com"]
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "api_task_execution_role_policy" {
+  name_prefix = "api_task_role_policy"
+  role        = aws_iam_role.api_task_execution_role.id
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Action" : ["secretsmanager:GetSecretValue"],
+        "Effect" : "Allow",
+        "Resource" : [aws_secretsmanager_secret_version.mongo_password.arn]
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Resource" : "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "api_task_execution_role" {
+  name_prefix = "api_task_execution_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = ["ecs-tasks.amazonaws.com"]
+        }
+      }
+    ]
+  })
 }
 
 resource "aws_ecs_task_definition" "api" {
   family                   = "api"
-  execution_role_arn       = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ecsTaskExecutionRole"
+  execution_role_arn       = aws_iam_role.api_task_execution_role.arn
+  task_role_arn            = aws_iam_role.api_task_role.arn
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   container_definitions = jsonencode([
@@ -25,8 +116,8 @@ resource "aws_ecs_task_definition" "api" {
       essential = true
       portMappings = [
         {
-          containerPort = 80
-          hostPort      = 80
+          containerPort = 8080
+          hostPort      = 8080
         }
       ]
       logConfiguration = {
@@ -37,28 +128,68 @@ resource "aws_ecs_task_definition" "api" {
           awslogs-stream-prefix = "api"
         }
       }
+      environment = [
+        {
+          name  = "MONGODB_HOST"
+          value = aws_docdb_cluster.mongo.endpoint
+        },
+        {
+          name  = "MONGODB_PORT"
+          value = tostring(aws_docdb_cluster.mongo.port)
+        },
+        {
+          name  = "MONGODB_DATABASE"
+          value = "converter"
+        },
+        {
+          name  = "MONGODB_USERNAME"
+          value = aws_docdb_cluster.mongo.master_username
+        },
+        {
+          name  = "S3_INPUT_BUCKET"
+          value = aws_s3_bucket.input.bucket
+        },
+        {
+          name  = "S3_OUTPUT_BUCKET"
+          value = aws_s3_bucket.output.bucket
+        },
+        {
+          name  = "SQS_QUEUE"
+          value = aws_sqs_queue.input.url
+        },
+      ]
+      secrets = [
+        {
+          name      = "MONGODB_PASSWORD"
+          valueFrom = aws_secretsmanager_secret_version.mongo_password.arn
+        },
+      ]
     },
   ])
-  cpu    = 256
-  memory = 512
+  cpu    = 512
+  memory = 1024
 }
 
 resource "aws_lb_target_group" "api" {
   name_prefix = "api"
-  port        = 80
+  port        = 8080
   protocol    = "HTTP"
   target_type = "ip"
   vpc_id      = aws_vpc.main.id
 
-  /* health_check {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  health_check {
     healthy_threshold   = "3"
     interval            = "300"
     protocol            = "HTTP"
     matcher             = "200"
     timeout             = "3"
-    path                = "/v1/status"
+    path                = "/actuator/health"
     unhealthy_threshold = "2"
-  } */
+  }
 }
 
 resource "aws_security_group" "loadbalancer" {
@@ -93,7 +224,7 @@ resource "aws_security_group" "service" {
 
   ingress {
     from_port       = 0
-    to_port         = 80
+    to_port         = 8080
     protocol        = "TCP"
     security_groups = [aws_security_group.loadbalancer.id]
   }
@@ -119,14 +250,14 @@ resource "aws_alb_listener" "api" {
 }
 
 resource "aws_ecs_service" "api" {
-  name                  = "api"
-  cluster               = aws_ecs_cluster.main.id
-  task_definition       = aws_ecs_task_definition.api.arn
-  launch_type           = "FARGATE"
-  scheduling_strategy   = "REPLICA"
-  desired_count         = 3
-  force_new_deployment  = true
-  wait_for_steady_state = true
+  name                 = "api"
+  cluster              = aws_ecs_cluster.main.id
+  task_definition      = aws_ecs_task_definition.api.arn
+  launch_type          = "FARGATE"
+  scheduling_strategy  = "REPLICA"
+  desired_count        = 3
+  force_new_deployment = true
+  # wait_for_steady_state = true
 
   network_configuration {
     subnets         = aws_subnet.private[*].id
@@ -137,7 +268,7 @@ resource "aws_ecs_service" "api" {
     target_group_arn = aws_lb_target_group.api.arn
     # elb_name       = aws_alb.api.id
     container_name = "api"
-    container_port = 80
+    container_port = 8080
   }
 
   lifecycle {
@@ -147,7 +278,14 @@ resource "aws_ecs_service" "api" {
     ]
   }
 
+  # triggers = {
+  #   redeployment = timestamp()
+  # }
+
   depends_on = [
-    aws_alb_listener.api
+    aws_alb_listener.api,
+    aws_docdb_cluster_instance.mongo,
+    aws_iam_role_policy.api_task_role_policy,
+    aws_iam_role_policy.api_task_execution_role_policy
   ]
 }
