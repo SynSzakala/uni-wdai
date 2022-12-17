@@ -1,0 +1,21 @@
+FROM adoptopenjdk/openjdk14 as build
+
+ADD . .
+
+RUN ./gradlew :api:bootJar
+
+FROM adoptopenjdk/openjdk14
+
+RUN apt-get -y update && apt-get install -y ffmpeg
+
+COPY --from=build worker/build/libs/worker-0.0.1-SNAPSHOT.jar worker.jar
+
+ENTRYPOINT java -jar worker.jar \
+    -Duni.wdai.s3.input_bucket=$S3_INPUT_BUCKET \
+    -Duni.wdai.s3.output_bucket=$S3_OUTPUT_BUCKET \
+    -Duni.wdai.sqs.start_queue=$SQS_QUEUE \
+    -Dspring.data.mongodb.host=$MONGODB_HOST \
+    -Dspring.data.mongodb.port=$MONGODB_PORT \
+    -Dspring.data.mongodb.username=$MONGODB_USERNAME \
+    -Dspring.data.mongodb.password=$MONGODB_PASSWORD \
+    -Duni.wdai.mongo.ssl.enabled=true
