@@ -1,4 +1,7 @@
-terraform -chdir=ecr apply -auto-approve
+set -xe
+
+terraform -chdir=ecr plan -out=tfplan
+terraform -chdir=ecr apply tfplan
 API_REPOSITORY_URL=$(terraform -chdir=ecr output -json | jq -r ".api_repository_url.value")
 CONVERTER_REPOSITORY_URL=$(terraform -chdir=ecr output -json | jq -r ".converter_repository_url.value")
 
@@ -17,4 +20,5 @@ docker pull containous/whoami
 docker tag containous/whoami $CONVERTER_REPOSITORY_URL
 docker push $CONVERTER_REPOSITORY_URL
 
-terraform -chdir=main apply -auto-approve -var="api_repository_url=$API_REPOSITORY_URL" -var="converter_repository_url=$CONVERTER_REPOSITORY_URL"
+terraform -chdir=main plan -var="api_repository_url=$API_REPOSITORY_URL" -var="converter_repository_url=$CONVERTER_REPOSITORY_URL" -out=tfplan
+terraform -chdir=main apply tfplan
