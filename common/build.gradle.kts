@@ -25,6 +25,7 @@ dependencies {
     api("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     api("org.springframework.boot:spring-boot-starter-actuator")
+    api("org.springframework.boot:spring-boot-starter-webflux")
 
     api(platform("software.amazon.awssdk:bom:2.18.16"))
     api("software.amazon.awssdk:s3")

@@ -20,7 +20,6 @@ configurations {
 dependencies {
     implementation(project(":common"))
 
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springdoc:springdoc-openapi-webflux-ui:1.6.13")
     implementation("org.springdoc:springdoc-openapi-kotlin:1.6.13")
 }
