@@ -157,6 +157,10 @@ resource "aws_ecs_task_definition" "api" {
           name  = "SQS_QUEUE"
           value = aws_sqs_queue.input.url
         },
+        {
+          name  = "MONGODB_REPLICA_SET",
+          value = "rs0"
+        }
       ]
       secrets = [
         {
@@ -186,7 +190,7 @@ resource "aws_lb_target_group" "api" {
     interval            = "300"
     protocol            = "HTTP"
     matcher             = "200"
-    timeout             = "3"
+    timeout             = "8"
     path                = "/actuator/health"
     unhealthy_threshold = "2"
   }

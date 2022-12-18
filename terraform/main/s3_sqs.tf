@@ -45,15 +45,6 @@ resource "aws_sqs_queue_policy" "input" {
   })
 }
 
-resource "aws_s3_bucket_notification" "input_notification" {
-  bucket = aws_s3_bucket.input.id
-
-  queue {
-    queue_arn = aws_sqs_queue.input.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
-}
-
 resource "aws_s3_bucket" "output" {
   bucket_prefix = "converter-output"
   force_destroy = true

@@ -125,3 +125,13 @@ resource "aws_vpc_endpoint" "secretsmanager" {
   subnet_ids         = aws_subnet.private[*].id
   security_group_ids = [aws_security_group.allow_all.id]
 }
+
+resource "aws_vpc_endpoint" "sqs" {
+  vpc_endpoint_type   = "Interface"
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.eu-central-1.sqs"
+  private_dns_enabled = true
+
+  subnet_ids         = aws_subnet.private[*].id
+  security_group_ids = [aws_security_group.allow_all.id]
+}
