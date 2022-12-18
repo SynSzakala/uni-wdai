@@ -2,7 +2,7 @@ FROM adoptopenjdk/openjdk14
 
 RUN apt-get -y update && apt-get install -y ffmpeg
 
-COPY --from=build worker/build/libs/worker-0.0.1-SNAPSHOT.jar worker.jar
+COPY worker/build/libs/worker-0.0.1-SNAPSHOT.jar worker.jar
 
 ENTRYPOINT java -jar worker.jar \
     --uni.wdai.s3.input_bucket=$S3_INPUT_BUCKET \

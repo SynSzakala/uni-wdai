@@ -2,7 +2,7 @@ FROM adoptopenjdk/openjdk14 as build
 
 ADD . .
 
-RUN ./gradlew :api:bootJar
+RUN ./gradlew :worker:bootJar
 
 FROM adoptopenjdk/openjdk14
 
