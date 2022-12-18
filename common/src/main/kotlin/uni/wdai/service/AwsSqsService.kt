@@ -1,5 +1,6 @@
 package uni.wdai.service
 
+import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import kotlinx.coroutines.coroutineScope
@@ -7,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import uni.wdai.configuration.AwsSqsQueueUrls
@@ -18,6 +20,8 @@ class AwsSqsService(
     private val queueUrls: AwsSqsQueueUrls,
     private val objectMapper: ObjectMapper
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass);
+
     suspend fun send(event: ConversionStartEvent) {
         client.sendMessage { it.queueUrl(queueUrls.start).messageBody(objectMapper.writeValueAsString(event)) }.await()
     }
@@ -38,7 +42,12 @@ class AwsSqsService(
                             }
                         }
                     }
-                    emit(objectMapper.readValue(message.body()))
+                    try {
+                        emit(objectMapper.readValue(message.body()))
+                    } catch(e: JacksonException) {
+                        logger.warn("Error during event deserialization", e)
+                    }
+
                     client.deleteMessage { it.queueUrl(queueUrls.start).receiptHandle(message.receiptHandle()) }
                     job.cancel()
                 }
