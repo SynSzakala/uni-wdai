@@ -17,13 +17,24 @@ resource "aws_docdb_subnet_group" "mongo" {
   subnet_ids  = aws_subnet.private[*].id
 }
 
+resource "aws_docdb_cluster_parameter_group" "mongo" {
+  name_prefix = "mongoconverter"
+  family      = "docdb4.0"
+
+  parameter {
+    name  = "tls"
+    value = "disabled"
+  }
+}
+
 resource "aws_docdb_cluster" "mongo" {
-  master_username      = "root"
-  master_password      = aws_secretsmanager_secret_version.mongo_password.secret_string
-  apply_immediately    = true
-  deletion_protection  = false
-  skip_final_snapshot  = true
-  db_subnet_group_name = aws_docdb_subnet_group.mongo.name
+  master_username                 = "root"
+  master_password                 = aws_secretsmanager_secret_version.mongo_password.secret_string
+  apply_immediately               = true
+  deletion_protection             = false
+  skip_final_snapshot             = true
+  db_subnet_group_name            = aws_docdb_subnet_group.mongo.name
+  db_cluster_parameter_group_name = aws_docdb_cluster_parameter_group.mongo.name
 }
 
 resource "aws_docdb_cluster_instance" "mongo" {
