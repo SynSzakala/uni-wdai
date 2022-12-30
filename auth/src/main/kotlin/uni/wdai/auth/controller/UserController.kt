@@ -43,7 +43,7 @@ class UserController(
         return AuthUserRes(token = authTokenService.createToken(user))
     }
 
-    data class UpdateMaxConversionBytesReq(val bytes: Int)
+    data class UpdateMaxConversionBytesReq(val bytes: Long)
 
     @PostMapping("/user/{id}/maxConversionBytes")
     @Transactional
