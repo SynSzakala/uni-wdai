@@ -11,6 +11,7 @@ data class ConversionJob(
     val inputFormat: Format,
     val outputFormat: Format,
     val state: State = State.Created,
+    val userId: ObjectId,
 ) {
     enum class State {
         Created,
