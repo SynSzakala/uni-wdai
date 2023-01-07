@@ -18,3 +18,9 @@ resource "aws_ecr_repository" "converter" {
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 }
+
+resource "aws_ecr_repository" "auth" {
+  name                 = "auth"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+}
