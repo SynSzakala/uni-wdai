@@ -49,8 +49,8 @@ export const App = () => {
   const [userId, setUserId] = useLocalStorage("userId", "");
   const [secretKey, setSecretKey] = useLocalStorage("secretKey", "");
   const [token, setToken] = useState("");
-  const [inFormat, setInFormat] = useLocalStorage("inFormat", "");
-  const [outFormat, setOutFormat] = useLocalStorage("outFormat", "");
+  const [inFormat, setInFormat] = useLocalStorage("inFormat", formats[0]);
+  const [outFormat, setOutFormat] = useLocalStorage("outFormat", formats[0]);
   const [file, setFile] = useState<File | undefined>(undefined);
   const [jobId, setJobId] = useState("");
   const [uploadUrl, setUploadUrl] = useState("");
