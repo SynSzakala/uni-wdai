@@ -41,7 +41,7 @@ export const useLocalStorage = (key: any, defaultValue: any) => {
   return [value, setValue];
 };
 
-const formats = ["Mp3", "Mp4", "Aac"];
+const formats = ["Mp4", "Mp3", "Aac"];
 
 export const App = () => {
   const queryClient = new QueryClient();
@@ -309,12 +309,12 @@ const AdminStuff = () => {
             Create new user
           </Button>
           {
-            <Typography>
+            <Typography component="div">
               Login: <pre style={{ userSelect: "all" }}>{id || "No id."}</pre>
             </Typography>
           }
           {
-            <Typography>
+            <Typography component="div">
               Password:{" "}
               <pre style={{ userSelect: "all" }}>{pwd || "No password."}</pre>
             </Typography>
