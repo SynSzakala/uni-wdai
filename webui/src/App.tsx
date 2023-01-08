@@ -220,9 +220,108 @@ export const App = () => {
                 "No download URL."
               )}
             </Typography>
+            <Divider />
+
+            <AdminStuff />
           </Stack>
         </Box>
       </QueryClientProvider>
+    </>
+  );
+};
+
+const AdminStuff = () => {
+  const [adminStuff, setAdminStuff] = useState(false);
+
+  const [id, setId] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [limit, setLimit] = useState(0);
+
+  return (
+    <>
+      <Button onClick={() => setAdminStuff((prev) => !prev)}>
+        Show admin stuff
+      </Button>
+      {adminStuff && (
+        <Stack spacing={2}>
+          <Typography textAlign="center" variant="h6">
+            Admin stuff (please don't use this if you aren't authorized)
+          </Typography>
+          <Typography textAlign="center" variant="h6">
+            (please)
+          </Typography>
+          <Divider />
+          <TextField
+            value={limit}
+            onChange={(e) => setLimit(e.target.value as any)}
+            type="number"
+            label="Max uploading limit (bytes)"
+          />
+          <Button
+            onClick={async () => {
+              const r = await fetch(
+                `${API}/user/01ad01ad01ad01ad01ad01ad/auth`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    secretKey: "fdf35703677832eff2d55f2e9bd81693",
+                  }),
+                  headers: { "Content-Type": "application/json" },
+                }
+              );
+              if (!r.ok) {
+                alert("Error creating user!");
+                return;
+              }
+              const { token } = await r.json();
+              {
+                const r = await fetch(`${API}/user`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!r.ok) {
+                  alert("Error creating user!");
+                  return;
+                }
+                const { id, secretKey } = await r.json();
+                {
+                  const r = await fetch(
+                    `${API}/user/${id}/maxConversionBytes`,
+                    {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({ bytes: limit }),
+                    }
+                  );
+                  if (!r.ok) {
+                    alert("Error setting upload limit!");
+                    return;
+                  }
+                  setId(id);
+                  setPwd(secretKey);
+                }
+              }
+            }}
+          >
+            Create new user
+          </Button>
+          {
+            <Typography>
+              Login: <pre style={{ userSelect: "all" }}>{id || "No id."}</pre>
+            </Typography>
+          }
+          {
+            <Typography>
+              Password:{" "}
+              <pre style={{ userSelect: "all" }}>{pwd || "No password."}</pre>
+            </Typography>
+          }
+          <Divider />
+        </Stack>
+      )}
     </>
   );
 };
