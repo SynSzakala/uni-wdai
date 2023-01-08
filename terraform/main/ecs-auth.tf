@@ -1,27 +1,32 @@
-data "aws_caller_identity" "current" {}
-
-resource "random_string" "cluster_postfix" {
-  length  = 8
-  special = false
+resource "aws_secretsmanager_secret" "auth_secret_key" {
+  name_prefix = "authsecretkey"
 }
 
-resource "aws_ecs_cluster" "main" {
-  name = join("_", ["converter", random_string.cluster_postfix.result])
-
-
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
+resource "random_id" "auth_secret_key" {
+  byte_length = 32
 }
 
-resource "aws_cloudwatch_log_group" "main" {
-  name_prefix = "converter-logs"
+resource "aws_secretsmanager_secret_version" "auth_secret_key" {
+  secret_id     = aws_secretsmanager_secret.auth_secret_key.id
+  secret_string = random_id.auth_secret_key.hex
 }
 
-resource "aws_iam_role_policy" "api_task_role_policy" {
-  name_prefix = "api_task_role_policy"
-  role        = aws_iam_role.api_task_role.id
+resource "aws_secretsmanager_secret" "auth_admin_secret_key" {
+  name_prefix = "authadminsecretkey"
+}
+
+resource "random_id" "auth_admin_secret_key" {
+  byte_length = 16
+}
+
+resource "aws_secretsmanager_secret_version" "auth_admin_secret_key" {
+  secret_id     = aws_secretsmanager_secret.auth_admin_secret_key.id
+  secret_string = random_id.auth_admin_secret_key.hex
+}
+
+resource "aws_iam_role_policy" "auth_task_role_policy" {
+  name_prefix = "auth_task_role_policy"
+  role        = aws_iam_role.auth_task_role.id
 
   # todo
   policy = jsonencode({
@@ -37,8 +42,8 @@ resource "aws_iam_role_policy" "api_task_role_policy" {
   })
 }
 
-resource "aws_iam_role" "api_task_role" {
-  name_prefix = "api_task_role"
+resource "aws_iam_role" "auth_task_role" {
+  name_prefix = "auth_task_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -57,9 +62,9 @@ resource "aws_iam_role" "api_task_role" {
   })
 }
 
-resource "aws_iam_role_policy" "api_task_execution_role_policy" {
-  name_prefix = "api_task_role_policy"
-  role        = aws_iam_role.api_task_execution_role.id
+resource "aws_iam_role_policy" "auth_task_execution_role_policy" {
+  name_prefix = "auth_task_role_policy"
+  role        = aws_iam_role.auth_task_execution_role.id
 
   policy = jsonencode({
     "Version" : "2012-10-17",
@@ -73,6 +78,11 @@ resource "aws_iam_role_policy" "api_task_execution_role_policy" {
         "Action" : ["secretsmanager:GetSecretValue"],
         "Effect" : "Allow",
         "Resource" : [aws_secretsmanager_secret_version.auth_secret_key.arn]
+      },
+      {
+        "Action" : ["secretsmanager:GetSecretValue"],
+        "Effect" : "Allow",
+        "Resource" : [aws_secretsmanager_secret_version.auth_admin_secret_key.arn]
       },
       {
         "Effect" : "Allow",
@@ -90,8 +100,8 @@ resource "aws_iam_role_policy" "api_task_execution_role_policy" {
   })
 }
 
-resource "aws_iam_role" "api_task_execution_role" {
-  name_prefix = "api_task_execution_role"
+resource "aws_iam_role" "auth_task_execution_role" {
+  name_prefix = "auth_task_execution_role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -108,16 +118,16 @@ resource "aws_iam_role" "api_task_execution_role" {
   })
 }
 
-resource "aws_ecs_task_definition" "api" {
-  family                   = "api"
-  execution_role_arn       = aws_iam_role.api_task_execution_role.arn
-  task_role_arn            = aws_iam_role.api_task_role.arn
+resource "aws_ecs_task_definition" "auth" {
+  family                   = "auth"
+  execution_role_arn       = aws_iam_role.auth_task_execution_role.arn
+  task_role_arn            = aws_iam_role.auth_task_role.arn
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   container_definitions = jsonencode([
     {
-      name      = "api"
-      image     = var.api_repository_url
+      name      = "auth"
+      image     = var.auth_repository_url
       essential = true
       portMappings = [
         {
@@ -130,7 +140,7 @@ resource "aws_ecs_task_definition" "api" {
         options = {
           awslogs-group         = "${aws_cloudwatch_log_group.main.id}",
           awslogs-region        = "eu-central-1",
-          awslogs-stream-prefix = "api"
+          awslogs-stream-prefix = "auth"
         }
       }
       environment = [
@@ -151,18 +161,6 @@ resource "aws_ecs_task_definition" "api" {
           value = aws_docdb_cluster.mongo.master_username
         },
         {
-          name  = "S3_INPUT_BUCKET"
-          value = aws_s3_bucket.input.bucket
-        },
-        {
-          name  = "S3_OUTPUT_BUCKET"
-          value = aws_s3_bucket.output.bucket
-        },
-        {
-          name  = "SQS_QUEUE"
-          value = aws_sqs_queue.input.url
-        },
-        {
           name  = "MONGODB_REPLICA_SET",
           value = "rs0"
         }
@@ -175,7 +173,11 @@ resource "aws_ecs_task_definition" "api" {
         {
           name      = "AUTH_SECRET_KEY"
           valueFrom = aws_secretsmanager_secret_version.auth_secret_key.arn
-        }
+        },
+        {
+          name      = "AUTH_ADMIN_SECRET_KEY"
+          valueFrom = aws_secretsmanager_secret_version.auth_admin_secret_key.arn
+        },
       ]
     },
   ])
@@ -183,8 +185,8 @@ resource "aws_ecs_task_definition" "api" {
   memory = 1024
 }
 
-resource "aws_lb_target_group" "api" {
-  name_prefix = "api"
+resource "aws_lb_target_group" "auth" {
+  name_prefix = "auth"
   port        = 8080
   protocol    = "HTTP"
   target_type = "ip"
@@ -205,27 +207,40 @@ resource "aws_lb_target_group" "api" {
   }
 }
 
-resource "aws_security_group" "loadbalancer" {
-  name_prefix = "loadbalancer"
-  vpc_id      = aws_vpc.main.id
+resource "aws_lb_listener_rule" "auth_user" {
+  listener_arn = aws_alb_listener.api.arn
+  priority     = 99
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.auth.id
   }
 
-  ingress {
-    from_port   = 0
-    to_port     = 80
-    protocol    = "TCP"
-    cidr_blocks = ["0.0.0.0/0"]
+  condition {
+    path_pattern {
+      values = ["/user*"]
+    }
   }
 }
 
-resource "aws_security_group" "service" {
-  name_prefix = "loadbalancer"
+resource "aws_lb_listener_rule" "auth_auth" {
+  listener_arn = aws_alb_listener.api.arn
+  priority     = 98
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.auth.id
+  }
+
+  condition {
+    path_pattern {
+      values = ["/auth*"]
+    }
+  }
+}
+
+resource "aws_security_group" "auth_service" {
+  name_prefix = "auth_service"
   vpc_id      = aws_vpc.main.id
 
   egress {
@@ -243,50 +258,10 @@ resource "aws_security_group" "service" {
   }
 }
 
-resource "aws_alb" "api" {
-  name               = "api"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.loadbalancer.id]
-  subnets            = aws_subnet.public[*].id
-}
-
-resource "aws_alb_listener" "api" {
-  load_balancer_arn = aws_alb.api.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "fixed-response"
-
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Converter"
-      status_code  = "200"
-    }
-  }
-}
-
-resource "aws_lb_listener_rule" "api" {
-  listener_arn = aws_alb_listener.api.arn
-  priority     = 100
-
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.api.id
-  }
-
-  condition {
-    path_pattern {
-      values = ["/job*"]
-    }
-  }
-}
-
-resource "aws_ecs_service" "api" {
-  name                 = "api"
+resource "aws_ecs_service" "auth" {
+  name                 = "auth"
   cluster              = aws_ecs_cluster.main.id
-  task_definition      = aws_ecs_task_definition.api.arn
+  task_definition      = aws_ecs_task_definition.auth.arn
   launch_type          = "FARGATE"
   scheduling_strategy  = "REPLICA"
   desired_count        = 2
@@ -295,13 +270,13 @@ resource "aws_ecs_service" "api" {
 
   network_configuration {
     subnets         = aws_subnet.private[*].id
-    security_groups = [aws_security_group.service.id]
+    security_groups = [aws_security_group.auth_service.id]
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.api.arn
-    # elb_name       = aws_alb.api.id
-    container_name = "api"
+    target_group_arn = aws_lb_target_group.auth.arn
+    # elb_name       = aws_alb.auth.id
+    container_name = "auth"
     container_port = 8080
   }
 
@@ -319,7 +294,7 @@ resource "aws_ecs_service" "api" {
   depends_on = [
     aws_alb_listener.api,
     aws_docdb_cluster_instance.mongo,
-    aws_iam_role_policy.api_task_role_policy,
-    aws_iam_role_policy.api_task_execution_role_policy
+    aws_iam_role_policy.auth_task_role_policy,
+    aws_iam_role_policy.auth_task_execution_role_policy
   ]
 }

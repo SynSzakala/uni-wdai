@@ -3,6 +3,16 @@ resource "aws_s3_bucket" "input" {
   force_destroy = true
 }
 
+resource "aws_s3_bucket_cors_configuration" "input" {
+  bucket = aws_s3_bucket.input.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT", "POST", "GET"]
+    allowed_origins = ["*"]
+  }
+}
+
 resource "aws_s3_bucket_ownership_controls" "input_bucket" {
   bucket = aws_s3_bucket.input.id
   rule {
@@ -48,6 +58,16 @@ resource "aws_sqs_queue_policy" "input" {
 resource "aws_s3_bucket" "output" {
   bucket_prefix = "converter-output"
   force_destroy = true
+}
+
+resource "aws_s3_bucket_cors_configuration" "output" {
+  bucket = aws_s3_bucket.output.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT", "POST", "GET"]
+    allowed_origins = ["*"]
+  }
 }
 
 resource "aws_s3_bucket_ownership_controls" "output_bucket" {
